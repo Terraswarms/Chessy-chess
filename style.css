@@ -3,13 +3,16 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #1e1e1e;
+  background: #181b1a;
   color: #fff;
-  margin-top: 25px;
+  margin-top: 28px;
+  padding: 0 16px 32px;
 }
 
 .controls {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -18,12 +21,12 @@ select, button {
   padding: 8px 12px;
   font-size: 0.95rem;
   border-radius: 4px;
-  border: none;
+  border: 1px solid #4a554b;
   cursor: pointer;
 }
 
 select {
-  background: #333;
+  background: #29302b;
   color: #fff;
 }
 
@@ -37,6 +40,12 @@ button:hover {
   background: #85a862;
 }
 
+select:focus-visible,
+button:focus-visible {
+  outline: 3px solid rgba(246, 246, 105, 0.8);
+  outline-offset: 2px;
+}
+
 .board-wrapper {
   position: relative;
 }
@@ -45,7 +54,10 @@ button:hover {
   display: grid;
   grid-template-columns: repeat(8, 60px);
   grid-template-rows: repeat(8, 60px);
-  border: 4px solid #444;
+  border: 5px solid #0d100e;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
   user-select: none;
 }
 
@@ -57,10 +69,22 @@ button:hover {
   align-items: center;
   font-size: 42px;
   cursor: pointer;
+  transition: filter 120ms ease, box-shadow 120ms ease;
 }
 
-.light { background: #eeeed2; color: #000; }
-.dark { background: #769656; color: #000; }
+.square:hover { filter: brightness(1.08); }
+.light { background: #eee8d5; }
+.dark { background: #62865f; }
+.white-piece {
+  color: #fff;
+  -webkit-text-stroke: 1.5px #26302a;
+  text-shadow: 0 2px 1px rgba(0, 0, 0, 0.65), 0 0 3px rgba(0, 0, 0, 0.55);
+}
+.black-piece {
+  color: #121715;
+  -webkit-text-stroke: 1px #f5f1df;
+  text-shadow: 0 2px 1px rgba(255, 255, 255, 0.35), 0 0 2px rgba(255, 255, 255, 0.4);
+}
 .selected { background: #f6f669 !important; }
 .last-move { background: rgba(246, 246, 105, 0.55) !important; }
 .highlight { box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3); }
@@ -96,8 +120,11 @@ button:hover {
 
 #status {
   margin-bottom: 12px;
+  min-height: 1.5em;
+  color: #e9f0e7;
   font-size: 1.2rem;
   font-weight: bold;
+  letter-spacing: 0.01em;
 }
 
 #promoModal {
@@ -111,11 +138,21 @@ button:hover {
 }
 
 .promo-box {
-  background: #2c2c2c;
+  background: #252b27;
   padding: 15px 20px;
   border-radius: 8px;
   text-align: center;
   border: 2px solid #769656;
+}
+
+@media (max-width: 560px) {
+  body { margin-top: 18px; }
+  #board {
+    grid-template-columns: repeat(8, min(11vw, 60px));
+    grid-template-rows: repeat(8, min(11vw, 60px));
+  }
+  .square { font-size: min(8vw, 42px); }
+  #status { font-size: 1rem; }
 }
 
 .promo-choices {

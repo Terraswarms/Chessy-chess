@@ -11,6 +11,8 @@ let selectedSquare = null;
 let lastMove = null;
 let playerColor = 'w';
 let pendingPromotion = null;
+let thinkingTimer = null;
+let thinkingDots = 1;
 
 const pieceSymbols = {
   p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
@@ -91,6 +93,7 @@ function renderBoard() {
 
       if (piece) {
         const key = piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
+        sqEl.classList.add(piece.color === 'w' ? 'white-piece' : 'black-piece');
         sqEl.textContent = pieceSymbols[key];
       }
 
@@ -100,6 +103,22 @@ function renderBoard() {
   }
 
   updateStatus();
+}
+
+function startThinking() {
+  clearInterval(thinkingTimer);
+  thinkingDots = 1;
+  statusEl.textContent = 'Bot is thinking.';
+
+  thinkingTimer = setInterval(() => {
+    thinkingDots = thinkingDots === 3 ? 1 : thinkingDots + 1;
+    statusEl.textContent = 'Bot is thinking' + '.'.repeat(thinkingDots);
+  }, 300);
+}
+
+function stopThinking() {
+  clearInterval(thinkingTimer);
+  thinkingTimer = null;
 }
 
 function showPromotionDialog(from, to) {
@@ -140,8 +159,8 @@ function completePromotion(pieceType) {
     renderBoard();
 
     if (!game.game_over()) {
-      statusEl.textContent = 'AI is thinking...';
-      setTimeout(makeAIMove, 200);
+      startThinking();
+      setTimeout(makeAIMove, 850);
     }
   }
 }
@@ -166,8 +185,8 @@ function onSquareClick(square) {
       renderBoard();
 
       if (!game.game_over()) {
-        statusEl.textContent = 'AI is thinking...';
-        setTimeout(makeAIMove, 200);
+        startThinking();
+        setTimeout(makeAIMove, 850);
       }
     } else {
       const piece = game.get(square);
@@ -244,6 +263,7 @@ function minimax(depth, alpha, beta, isMaximizing, aiColor) {
 }
 
 function makeAIMove() {
+  stopThinking();
   const moves = game.moves();
   if (moves.length === 0) return;
 
@@ -305,8 +325,8 @@ function resetGame() {
   renderBoard();
 
   if (playerColor === 'b') {
-    statusEl.textContent = 'AI is thinking...';
-    setTimeout(makeAIMove, 250);
+    startThinking();
+    setTimeout(makeAIMove, 850);
   }
 }
 
