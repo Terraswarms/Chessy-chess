@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Playable Chess vs AI</title>
+  <script src="https://cloudflare.com"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #1e1e1e;
+      color: #fff;
+      margin-top: 30px;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
+      border: 4px solid #444;
+      user-select: none;
+    }
+    .square {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 42px;
+      cursor: pointer;
+    }
+    .light { background: #eeeed2; color: #000; }
+    .dark { background: #769656; color: #000; }
+    .selected { background: #f6f669 !important; }
+    .highlight { box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3); }
+
+    /* Temporary glowing red animation for Check */
+    @keyframes checkPulse {
+      0%, 100% { box-shadow: inset 0 0 5px rgba(255, 0, 0, 0.4); }
+      50% { background-color: #ff4d4d; box-shadow: inset 0 0 18px 6px rgba(255, 0, 0, 0.95); }
+    }
+    .in-check {
+      animation: checkPulse 0.7s ease-in-out 2;
+    }
+
+    /* Permanent colors for Checkmate */
+    .king-winner {
+      background-color: #2ecc71 !important;
+      box-shadow: inset 0 0 12px rgba(0, 100, 0, 0.7);
+    }
+    .king-loser {
+      background-color: #e74c3c !important;
+      box-shadow: inset 0 0 12px rgba(100, 0, 0, 0.7);
+    }
+
+    #status { margin: 15px 0; font-size: 1.2rem; font-weight: bold; }
+    button {
+      padding: 8px 16px;
+      font-size: 1rem;
+      cursor: pointer;
+      background: #769656;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status">Your turn (White)</div>
+  <div id="board"></div>
+  <br>
+  <button onclick="resetGame()">New Game</button>
+
+  <script>
+    const game = new Chess();
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    let selectedSquare = null;
+
+    const pieceSymbols = {
+      p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
+      P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
+    };
+
+    const pieceValues = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
+
+    // Helper function to locate the White and Black kings
+    function getKingSquares() {
+      const board = game.board();
+      let whiteKing = null;
+      let blackKing = null;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = board[r][c];
+          if (piece && piece.type === 'k') {
+            const squareName = String.fromCharCode(97 + c) + (8 - r);
+            if (piece.color === 'w') whiteKing = squareName;
+            if (piece.color === 'b') blackKing = squareName;
+          }
+        }
+      }
+      return { w: whiteKing, b: blackKing };
+    }
+
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      const board = game.board();
+      const legalMoves = selectedSquare ? game.moves({ square: selectedSquare, verbose: true }).map(m => m.to) : [];
+      
+      const kings = getKingSquares();
+      const turn = game.turn();
+      const isCheckmate = game.in_checkmate();
+      const isCheck = game.in_check();
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const squareName = String.fromCharCode(97 + c) + (8 - r);
+          const sqEl = document.createElement('div');
+          sqEl.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+          
+          if (selectedSquare === squareName) sqEl.classList.add('selected');
+          if (legalMoves.includes(squareName)) sqEl.classList.add('highlight');
+
+          // Apply Checkmate or Check highlights
+          if (isCheckmate) {
+            const loserSquare = kings[turn];
+            const winnerSquare = kings[turn === 'w' ? 'b' : 'w'];
+            if (squareName === loserSquare) sqEl.classList.add('king-loser');
+            if (squareName === winnerSquare) sqEl.classList.add('king-winner');
+          } else if (isCheck && squareName === kings[turn]) {
+            sqEl.classList.add('in-check');
+          }
+
+          const piece = board[r][c];
+          if (piece) {
+            const key = piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
+            sqEl.textContent = pieceSymbols[key];
+          }
+
+          sqEl.onclick = () => onSquareClick(squareName);
+          boardEl.appendChild(sqEl);
+        }
+      }
+      updateStatus();
+    }
+
+    function onSquareClick(square) {
+      if (game.game_over() || game.turn() !== 'w') return;
+
+      if (selectedSquare) {
+        const move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+        selectedSquare = null;
+        renderBoard();
+
+        if (move && !game.game_over()) {
+          statusEl.textContent = 'AI is thinking...';
+          setTimeout(makeAIMove, 200);
+        }
+      } else {
+        const piece = game.get(square);
+        if (piece && piece.color === 'w') {
+          selectedSquare = square;
+          renderBoard();
+        }
+      }
+    }
+
+    function evaluateBoard(gameInstance) {
+      let total = 0;
+      const board = gameInstance.board();
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = board[r][c];
+          if (piece) {
+            const val = pieceValues[piece.type];
+            total += piece.color === 'b' ? val : -val;
+          }
+        }
+      }
+      return total;
+    }
+
+    function minimax(depth, alpha, beta, isMaximizing) {
+      if (depth === 0 || game.game_over()) {
+        if (game.in_checkmate()) return isMaximizing ? -9999 : 9999;
+        return evaluateBoard(game);
+      }
+
+      const moves = game.moves();
+      if (isMaximizing) {
+        let maxEval = -Infinity;
+        for (const move of moves) {
+          game.move(move);
+          const ev = minimax(depth - 1, alpha, beta, false);
+          game.undo();
+          maxEval = Math.max(maxEval, ev);
+          alpha = Math.max(alpha, ev);
+          if (beta <= alpha) break;
+        }
+        return maxEval;
+      } else {
+        let minEval = Infinity;
+        for (const move of moves) {
+          game.move(move);
+          const ev = minimax(depth - 1, alpha, beta, true);
+          game.undo();
+          minEval = Math.min(minEval, ev);
+          beta = Math.min(beta, ev);
+          if (beta <= alpha) break;
+        }
+        return minEval;
+      }
+    }
+
+    function makeAIMove() {
+      const moves = game.moves();
+      let bestMove = null;
+      let bestValue = -Infinity;
+
+      for (const move of moves) {
+        game.move(move);
+        const boardValue = minimax(2, -Infinity, Infinity, false);
+        game.undo();
+        if (boardValue > bestValue) {
+          bestValue = boardValue;
+          bestMove = move;
+        }
+      }
+
+      game.move(bestMove);
+      renderBoard();
+    }
+
+    function updateStatus() {
+      if (game.in_checkmate()) {
+        statusEl.textContent = game.turn() === 'w' ? 'Checkmate! AI wins.' : 'Checkmate! You win!';
+      } else if (game.in_draw()) {
+        statusEl.textContent = 'Game Over: Draw!';
+      } else {
+        statusEl.textContent = (game.turn() === 'w' ? 'Your turn (White)' : 'AI turn (Black)') + 
+                               (game.in_check() ? ' - CHECK!' : '');
+      }
+    }
+
+    function resetGame() {
+      game.reset();
+      selectedSquare = null;
+      renderBoard();
+    }
+
+    renderBoard();
+  </script>
+</body>
+</html>
