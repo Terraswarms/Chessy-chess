@@ -2,22 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Playable Chess vs AI</title>
-
   <link rel="stylesheet" href="style.css">
-
-  <!-- Chess.js library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script src="script.js" defer></script>
 </head>
 <body>
+  <div class="controls">
+    <select id="sideSelect" onchange="resetGame()">
+      <option value="w">Play as White</option>
+      <option value="b">Play as Black</option>
+    </select>
+
+    <select id="difficultySelect">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+
+    <button onclick="resetGame()">New Game</button>
+  </div>
 
   <div id="status">Your turn (White)</div>
-  <div id="board"></div>
 
-  <br>
-
-  <button onclick="resetGame()">New Game</button>
-
-  <script src="script.js"></script>
+  <div class="board-wrapper">
+    <div id="board"></div>
+    <div id="promoModal">
+      <div class="promo-box">
+        <div>Choose promotion piece:</div>
+        <div class="promo-choices" id="promoChoices"></div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

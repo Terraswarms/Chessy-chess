@@ -5,7 +5,40 @@ body {
   align-items: center;
   background: #1e1e1e;
   color: #fff;
-  margin-top: 30px;
+  margin-top: 25px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+select, button {
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+select {
+  background: #333;
+  color: #fff;
+}
+
+button {
+  background: #769656;
+  color: white;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #85a862;
+}
+
+.board-wrapper {
+  position: relative;
 }
 
 #board {
@@ -26,30 +59,16 @@ body {
   cursor: pointer;
 }
 
-.light {
-  background: #eeeed2;
-  color: #000;
-}
+.light { background: #eeeed2; color: #000; }
+.dark { background: #769656; color: #000; }
+.selected { background: #f6f669 !important; }
+.last-move { background: rgba(246, 246, 105, 0.55) !important; }
+.highlight { box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3); }
 
-.dark {
-  background: #769656;
-  color: #000;
-}
-
-.selected {
-  background: #f6f669 !important;
-}
-
-.highlight {
-  box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3);
-}
-
-/* Check animation */
 @keyframes checkPulse {
   0%, 100% {
     box-shadow: inset 0 0 5px rgba(255, 0, 0, 0.4);
   }
-
   50% {
     background-color: #ff4d4d;
     box-shadow: inset 0 0 18px 6px rgba(255, 0, 0, 0.95);
@@ -60,7 +79,6 @@ body {
   animation: checkPulse 0.7s ease-in-out 2;
 }
 
-/* Checkmate colors */
 .king-winner {
   background-color: #2ecc71 !important;
   box-shadow: inset 0 0 12px rgba(0, 100, 0, 0.7);
@@ -71,18 +89,53 @@ body {
   box-shadow: inset 0 0 12px rgba(100, 0, 0, 0.7);
 }
 
+.king-draw {
+  background-color: #3d3d3d !important;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.85);
+}
+
 #status {
-  margin: 15px 0;
+  margin-bottom: 12px;
   font-size: 1.2rem;
   font-weight: bold;
 }
 
-button {
-  padding: 8px 16px;
-  font-size: 1rem;
-  cursor: pointer;
-  background: #769656;
-  color: white;
-  border: none;
-  border-radius: 4px;
+#promoModal {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.promo-box {
+  background: #2c2c2c;
+  padding: 15px 20px;
+  border-radius: 8px;
+  text-align: center;
+  border: 2px solid #769656;
+}
+
+.promo-choices {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.promo-btn {
+  font-size: 38px;
+  width: 55px;
+  height: 55px;
+  background: #eeeed2;
+  color: #000;
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.promo-btn:hover {
+  background: #f6f669;
 }

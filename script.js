@@ -1,92 +1,88 @@
-
 const game = new Chess();
+
 const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
+const sideSelect = document.getElementById('sideSelect');
+const difficultySelect = document.getElementById('difficultySelect');
+const promoModal = document.getElementById('promoModal');
+const promoChoices = document.getElementById('promoChoices');
 
 let selectedSquare = null;
+let lastMove = null;
+let playerColor = 'w';
+let pendingPromotion = null;
 
 const pieceSymbols = {
   p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
   P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
 };
 
-const pieceValues = {
-  p: 10, n: 30, b: 30, r: 50, q: 90, k: 900
-};
+const pieceValues = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
 
-// Locate kings
 function getKingSquares() {
   const board = game.board();
-  let whiteKing = null;
-  let blackKing = null;
+  const kings = { w: null, b: null };
 
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const piece = board[r][c];
 
       if (piece && piece.type === 'k') {
-        const squareName =
-          String.fromCharCode(97 + c) + (8 - r);
-
-        if (piece.color === 'w') whiteKing = squareName;
-        if (piece.color === 'b') blackKing = squareName;
+        kings[piece.color] = String.fromCharCode(97 + c) + (8 - r);
       }
     }
   }
 
-  return { w: whiteKing, b: blackKing };
+  return kings;
 }
 
-// Draw board
 function renderBoard() {
   boardEl.innerHTML = '';
 
   const board = game.board();
-
   const legalMoves = selectedSquare
-    ? game.moves({
-        square: selectedSquare,
-        verbose: true
-      }).map(m => m.to)
+    ? game.moves({ square: selectedSquare, verbose: true }).map(m => m.to)
     : [];
 
   const kings = getKingSquares();
   const turn = game.turn();
-
   const isCheckmate = game.in_checkmate();
+  const isDraw = game.in_draw();
   const isCheck = game.in_check();
 
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const squareName =
-        String.fromCharCode(97 + c) + (8 - r);
+  // Reverse both axes when playing as Black so the board is rotated.
+  const rows = playerColor === 'w'
+    ? [0, 1, 2, 3, 4, 5, 6, 7]
+    : [7, 6, 5, 4, 3, 2, 1, 0];
 
+  const cols = playerColor === 'w'
+    ? [0, 1, 2, 3, 4, 5, 6, 7]
+    : [7, 6, 5, 4, 3, 2, 1, 0];
+
+  for (const r of rows) {
+    for (const c of cols) {
+      const squareName = String.fromCharCode(97 + c) + (8 - r);
       const sqEl = document.createElement('div');
 
-      sqEl.className =
-        'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+      sqEl.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
 
-      if (selectedSquare === squareName) {
-        sqEl.classList.add('selected');
+      if (lastMove && (lastMove.from === squareName || lastMove.to === squareName)) {
+        sqEl.classList.add('last-move');
       }
 
-      if (legalMoves.includes(squareName)) {
-        sqEl.classList.add('highlight');
-      }
+      if (selectedSquare === squareName) sqEl.classList.add('selected');
+      if (legalMoves.includes(squareName)) sqEl.classList.add('highlight');
 
-      // Checkmate and check highlights
       if (isCheckmate) {
         const loserSquare = kings[turn];
         const winnerSquare = kings[turn === 'w' ? 'b' : 'w'];
 
-        if (squareName === loserSquare) {
-          sqEl.classList.add('king-loser');
+        if (squareName === loserSquare) sqEl.classList.add('king-loser');
+        if (squareName === winnerSquare) sqEl.classList.add('king-winner');
+      } else if (isDraw) {
+        if (squareName === kings.w || squareName === kings.b) {
+          sqEl.classList.add('king-draw');
         }
-
-        if (squareName === winnerSquare) {
-          sqEl.classList.add('king-winner');
-        }
-
       } else if (isCheck && squareName === kings[turn]) {
         sqEl.classList.add('in-check');
       }
@@ -94,16 +90,11 @@ function renderBoard() {
       const piece = board[r][c];
 
       if (piece) {
-        const key =
-          piece.color === 'w'
-            ? piece.type.toUpperCase()
-            : piece.type;
-
+        const key = piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
         sqEl.textContent = pieceSymbols[key];
       }
 
       sqEl.onclick = () => onSquareClick(squareName);
-
       boardEl.appendChild(sqEl);
     }
   }
@@ -111,39 +102,91 @@ function renderBoard() {
   updateStatus();
 }
 
-// Player clicks
-function onSquareClick(square) {
-  if (game.game_over() || game.turn() !== 'w') return;
+function showPromotionDialog(from, to) {
+  pendingPromotion = { from, to };
+  promoChoices.innerHTML = '';
 
-  if (selectedSquare) {
-    const move = game.move({
-      from: selectedSquare,
-      to: square,
-      promotion: 'q'
-    });
+  const options = ['q', 'r', 'b', 'n'];
 
-    selectedSquare = null;
+  options.forEach(type => {
+    const btn = document.createElement('button');
+    btn.className = 'promo-btn';
+
+    const key = playerColor === 'w' ? type.toUpperCase() : type;
+    btn.textContent = pieceSymbols[key];
+    btn.onclick = () => completePromotion(type);
+
+    promoChoices.appendChild(btn);
+  });
+
+  promoModal.style.display = 'flex';
+}
+
+function completePromotion(pieceType) {
+  promoModal.style.display = 'none';
+  if (!pendingPromotion) return;
+
+  const move = game.move({
+    from: pendingPromotion.from,
+    to: pendingPromotion.to,
+    promotion: pieceType
+  });
+
+  pendingPromotion = null;
+  selectedSquare = null;
+
+  if (move) {
+    lastMove = { from: move.from, to: move.to };
     renderBoard();
 
-    if (move && !game.game_over()) {
+    if (!game.game_over()) {
       statusEl.textContent = 'AI is thinking...';
       setTimeout(makeAIMove, 200);
     }
+  }
+}
 
+function onSquareClick(square) {
+  if (game.game_over() || game.turn() !== playerColor || pendingPromotion) return;
+
+  if (selectedSquare) {
+    const matchingMoves = game.moves({ square: selectedSquare, verbose: true })
+      .filter(m => m.to === square);
+
+    if (matchingMoves.length > 0 && matchingMoves[0].flags.includes('p')) {
+      showPromotionDialog(selectedSquare, square);
+      return;
+    }
+
+    const move = game.move({ from: selectedSquare, to: square });
+    selectedSquare = null;
+
+    if (move) {
+      lastMove = { from: move.from, to: move.to };
+      renderBoard();
+
+      if (!game.game_over()) {
+        statusEl.textContent = 'AI is thinking...';
+        setTimeout(makeAIMove, 200);
+      }
+    } else {
+      const piece = game.get(square);
+      if (piece && piece.color === playerColor) selectedSquare = square;
+      renderBoard();
+    }
   } else {
     const piece = game.get(square);
 
-    if (piece && piece.color === 'w') {
+    if (piece && piece.color === playerColor) {
       selectedSquare = square;
       renderBoard();
     }
   }
 }
 
-// Evaluate board position
-function evaluateBoard(gameInstance) {
+function evaluateBoard(aiColor) {
   let total = 0;
-  const board = gameInstance.board();
+  const board = game.board();
 
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -151,8 +194,7 @@ function evaluateBoard(gameInstance) {
 
       if (piece) {
         const val = pieceValues[piece.type];
-
-        total += piece.color === 'b' ? val : -val;
+        total += piece.color === aiColor ? val : -val;
       }
     }
   }
@@ -160,14 +202,10 @@ function evaluateBoard(gameInstance) {
   return total;
 }
 
-// Minimax AI
-function minimax(depth, alpha, beta, isMaximizing) {
+function minimax(depth, alpha, beta, isMaximizing, aiColor) {
   if (depth === 0 || game.game_over()) {
-    if (game.in_checkmate()) {
-      return isMaximizing ? -9999 : 9999;
-    }
-
-    return evaluateBoard(game);
+    if (game.in_checkmate()) return isMaximizing ? -9999 : 9999;
+    return evaluateBoard(aiColor);
   }
 
   const moves = game.moves();
@@ -177,9 +215,7 @@ function minimax(depth, alpha, beta, isMaximizing) {
 
     for (const move of moves) {
       game.move(move);
-
-      const ev = minimax(depth - 1, alpha, beta, false);
-
+      const ev = minimax(depth - 1, alpha, beta, false, aiColor);
       game.undo();
 
       maxEval = Math.max(maxEval, ev);
@@ -189,15 +225,12 @@ function minimax(depth, alpha, beta, isMaximizing) {
     }
 
     return maxEval;
-
   } else {
     let minEval = Infinity;
 
     for (const move of moves) {
       game.move(move);
-
-      const ev = minimax(depth - 1, alpha, beta, true);
-
+      const ev = minimax(depth - 1, alpha, beta, true, aiColor);
       game.undo();
 
       minEval = Math.min(minEval, ev);
@@ -210,57 +243,71 @@ function minimax(depth, alpha, beta, isMaximizing) {
   }
 }
 
-// AI makes a move
 function makeAIMove() {
   const moves = game.moves();
+  if (moves.length === 0) return;
 
-  let bestMove = null;
-  let bestValue = -Infinity;
+  const difficulty = difficultySelect.value;
+  const aiColor = playerColor === 'w' ? 'b' : 'w';
+  let chosenMove = null;
 
-  for (const move of moves) {
-    game.move(move);
+  if (difficulty === 'easy') {
+    chosenMove = moves[Math.floor(Math.random() * moves.length)];
+  } else {
+    const searchDepth = difficulty === 'medium' ? 1 : 2;
+    let bestValue = -Infinity;
 
-    const boardValue = minimax(2, -Infinity, Infinity, false);
+    moves.sort(() => Math.random() - 0.5);
 
-    game.undo();
+    for (const move of moves) {
+      game.move(move);
+      const boardValue = minimax(searchDepth, -Infinity, Infinity, false, aiColor);
+      game.undo();
 
-    if (boardValue > bestValue) {
-      bestValue = boardValue;
-      bestMove = move;
+      if (boardValue > bestValue) {
+        bestValue = boardValue;
+        chosenMove = move;
+      }
     }
   }
 
-  if (bestMove) {
-    game.move(bestMove);
-  }
+  if (!chosenMove) return;
+
+  const moveObj = game.move(chosenMove);
+  if (moveObj) lastMove = { from: moveObj.from, to: moveObj.to };
 
   renderBoard();
 }
 
-// Update game status
 function updateStatus() {
-  if (game.in_checkmate()) {
-    statusEl.textContent =
-      game.turn() === 'w'
-        ? 'Checkmate! AI wins.'
-        : 'Checkmate! You win!';
+  const isPlayerTurn = game.turn() === playerColor;
 
+  if (game.in_checkmate()) {
+    statusEl.textContent = isPlayerTurn
+      ? 'Checkmate! AI wins.'
+      : 'Checkmate! You win!';
   } else if (game.in_draw()) {
     statusEl.textContent = 'Game Over: Draw!';
-
   } else {
-    statusEl.textContent =
-      (game.turn() === 'w' ? 'Your turn (White)' : 'AI turn (Black)') +
-      (game.in_check() ? ' - CHECK!' : '');
+    const turnLabel = isPlayerTurn ? 'Your turn' : 'AI turn';
+    statusEl.textContent = turnLabel + (game.in_check() ? ' - CHECK!' : '');
   }
 }
 
-// Reset game
 function resetGame() {
   game.reset();
+  promoModal.style.display = 'none';
+  pendingPromotion = null;
+  playerColor = sideSelect.value;
   selectedSquare = null;
+  lastMove = null;
+
   renderBoard();
+
+  if (playerColor === 'b') {
+    statusEl.textContent = 'AI is thinking...';
+    setTimeout(makeAIMove, 250);
+  }
 }
 
-// Start
 renderBoard();
