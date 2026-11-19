@@ -1,0 +1,88 @@
+body {
+  font-family: system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #1e1e1e;
+  color: #fff;
+  margin-top: 30px;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(8, 60px);
+  grid-template-rows: repeat(8, 60px);
+  border: 4px solid #444;
+  user-select: none;
+}
+
+.square {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 42px;
+  cursor: pointer;
+}
+
+.light {
+  background: #eeeed2;
+  color: #000;
+}
+
+.dark {
+  background: #769656;
+  color: #000;
+}
+
+.selected {
+  background: #f6f669 !important;
+}
+
+.highlight {
+  box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Check animation */
+@keyframes checkPulse {
+  0%, 100% {
+    box-shadow: inset 0 0 5px rgba(255, 0, 0, 0.4);
+  }
+
+  50% {
+    background-color: #ff4d4d;
+    box-shadow: inset 0 0 18px 6px rgba(255, 0, 0, 0.95);
+  }
+}
+
+.in-check {
+  animation: checkPulse 0.7s ease-in-out 2;
+}
+
+/* Checkmate colors */
+.king-winner {
+  background-color: #2ecc71 !important;
+  box-shadow: inset 0 0 12px rgba(0, 100, 0, 0.7);
+}
+
+.king-loser {
+  background-color: #e74c3c !important;
+  box-shadow: inset 0 0 12px rgba(100, 0, 0, 0.7);
+}
+
+#status {
+  margin: 15px 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+button {
+  padding: 8px 16px;
+  font-size: 1rem;
+  cursor: pointer;
+  background: #769656;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
