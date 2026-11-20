@@ -245,7 +245,6 @@ function evaluateBoard(aiColor) {
   if (game.history().length < 12) {
     board.flat().forEach(piece => {
       if (!piece || piece.color !== aiColor) return;
-      if (piece.type === 'q') total -= 10;
       if (piece.type === 'r' && piece.square !== undefined) total -= 4;
     });
   }
@@ -514,8 +513,24 @@ function searchBestMoveAsync(
 
   game.move(move);
 
+  const queenGivesCheck =
+    move.piece === 'q' && game.in_check();
+
+  const queenPenalty =
+    earlyQueenMove && !queenGivesCheck
+      ? 18
+      : 0;
+
   const earlyRookPenalty =
-    move.piece === 'r' && game.history().length < 8 ? 35 : 0;
+    move.piece === 'r' && game.history().length < 8
+      ? 35
+      : 0;
+
+  const earlyQueenMove =
+    move.piece === 'q' &&
+    game.history().length < 10 &&
+    !move.captured &&
+    !move.promotion;
 
 
   let castlingPenalty = 0;
@@ -540,7 +555,8 @@ function searchBestMoveAsync(
   const boardValue =
     minimax(searchDepth, -Infinity, Infinity, false, aiColor) -
     castlingPenalty -
-    earlyRookPenalty;
+    earlyRookPenalty -
+    queenPenalty;
 
   game.undo();  
 
