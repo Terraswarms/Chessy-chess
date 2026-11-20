@@ -9,25 +9,63 @@
   <script src="script.js" defer></script>
 </head>
 <body>
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">CHESSY CHESS</div>
+      <h1>Play against the bot</h1>
+      <p>Choose your side and find the best move.</p>
+    </div>
+    <div class="live-label"><span></span> Local game</div>
+  </header>
+
   <div class="controls">
-    <select id="sideSelect" onchange="resetGame()">
-      <option value="w">Play as White</option>
-      <option value="b">Play as Black</option>
-    </select>
+    <label class="control-field">
+      Play as
+      <select id="sideSelect" onchange="resetGame()">
+        <option value="w">White</option>
+        <option value="b">Black</option>
+      </select>
+    </label>
 
-    <select id="difficultySelect">
-      <option value="easy">Easy</option>
-      <option value="medium" selected>Medium</option>
-      <option value="hard">Hard</option>
-    </select>
+    <div class="difficulty-field">
+      <span class="field-label">Bot difficulty</span>
 
-    <button onclick="resetGame()">New Game</button>
+      <div class="difficulty-options" role="group" aria-label="Choose bot difficulty">
+        <button class="difficulty-option" data-level="easy" type="button">
+          <strong>Easy</strong>
+          <small>Relaxed play with mistakes</small>
+        </button>
+
+        <button class="difficulty-option active" data-level="medium" type="button">
+          <strong>Medium</strong>
+          <small>Thinks ahead, around 1000 ELO</small>
+        </button>
+
+        <button class="difficulty-option" data-level="hard" type="button">
+          <strong>Hard</strong>
+          <small>Strong tactical search</small>
+        </button>
+      </div>
+
+      <select id="difficultySelect" class="visually-hidden" aria-hidden="true" tabindex="-1">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+
+    <button class="new-game" onclick="resetGame()">
+      New Game <span>↗</span>
+    </button>
   </div>
 
-  <div id="status">Your turn (White)</div>
+  <div id="status" role="status" aria-live="polite">
+    Your turn (White)
+  </div>
 
   <div class="board-wrapper">
     <div id="board"></div>
+
     <div id="promoModal">
       <div class="promo-box">
         <div>Choose promotion piece:</div>

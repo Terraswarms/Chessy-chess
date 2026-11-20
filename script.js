@@ -330,4 +330,12 @@ function resetGame() {
   }
 }
 
+document.querySelectorAll('.difficulty-option').forEach(button => {
+  button.addEventListener('click', () => {
+    difficultySelect.value = button.dataset.level;
+    document.querySelectorAll('.difficulty-option').forEach(option => option.classList.remove('active'));
+    button.classList.add('active');
+  });
+});
+
 renderBoard();
