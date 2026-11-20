@@ -298,20 +298,43 @@ function minimax(depth, alpha, beta, isMaximizing, aiColor) {
     return minEval;
   }
 }
-//book movess
 const openingBook = {
-  '': ['e4', 'd4', 'Nf3'],
-  'e4': ['c5', 'e5', 'c6', 'e6','d5'],
-  'd4': ['d5', 'Nf6', 'e6'],
-  'Nf3': ['d5', 'Nf6', 'c5'],
-  'e4 c5 Nf3': ['d6', 'Nc6', 'e6'],
-  'e4 e5 Nf3': ['Nc6', 'Nf6'],
+  //  AI IS WHITE 
+  '': ['e4', 'd4'], // Removed Nf3 to keep White's plan direct
+  
+  // 1. e4 lines (Italian Game focus)
+  'e4 e5': ['Nf3'],
+  'e4 e5 Nf3 Nc6': ['Bc4'],
+  'e4 c5': ['Nf3'],          // Anti-Sicilian: simple development
+  'e4 c5 Nf3 d6': ['d4'],
+  'e4 c5 Nf3 Nc6': ['d4'],
+  'e4 c6': ['d4'],           // vs Caro-Kann
+  'e4 e6': ['d4'],           // vs French
+  'e4 d5': ['exd5'],         // vs Scandinavian (just take the free center pawn)
+
+  // 1. d4 lines (Queen's Gambit / London focus)
+  'd4 d5': ['c4', 'Bf4'],
+  'd4 Nf6': ['Nf3', 'Bf4'],
+
+  // === AI IS BLACK ===
+  // vs 1. e4 (Stick to symmetrical e5 or solid Caro-Kann c6)
+  'e4': ['e5', 'c6'],
+  'e4 e5 Nf3': ['Nc6'],
+  'e4 e5 Nf3 Nc6 Bc4': ['Bc5', 'Nf6'],
   'e4 c6 d4': ['d5'],
-  'e4 e6 d4': ['d5'],
-  'd4 d5 c4': ['e6', 'c6'],
-  'd4 Nf6 c4': ['e6', 'g6'],
-  'Nf3 d5 c4': ['e6', 'c6']
+
+  // vs 1. d4 (Stick to symmetrical d5 or solid Nf6)
+  'd4': ['d5', 'Nf6'],
+  'd4 d5 c4': ['e6', 'c6'],  // QGD or Slav (super solid)
+  'd4 d5 Bf4': ['Nf6', 'e6'],
+  'd4 Nf6 c4': ['e6'],       // Avoids sharp King's Indian (g6)
+
+  // vs 1. Nf3 (Mirror the center)
+  'Nf3': ['d5', 'Nf6'],
+  'Nf3 d5 c4': ['e6', 'c6'],
+  'Nf3 d5 g3': ['Nf6']
 };
+
 
 function getOpeningBookMove() {
   if (game.history().length > 8) return null;
@@ -437,12 +460,7 @@ function makeAIMove() {
     return;
   }
 
-  if (moveObj) {
-    lastMove = { from: moveObj.from, to: moveObj.to };
-  }
-
-  stopThinking();
-  renderBoard();
+  finishAIMove(chosenMove);
 }
 
 function updateStatus() {
