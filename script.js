@@ -14,7 +14,8 @@ let pendingPromotion = null;
 
 const pieceSymbols = {
   p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
-  P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
+  // Use filled glyphs for both sides; CSS controls the piece colour.
+  P: '♟', R: '♜', N: '♞', B: '♝', Q: '♛', K: '♚'
 };
 
 const pieceValues = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
@@ -330,3 +331,5 @@ document.querySelectorAll('.difficulty-option').forEach(button => {
 });
 
 renderBoard();
+window.testGame = game;
+window.testRender = renderBoard;

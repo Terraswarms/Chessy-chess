@@ -104,11 +104,13 @@ button:focus-visible {
 .dark { background: #62865f; }
 .white-piece {
   color: #fff;
+  -webkit-text-stroke: 1.35px #111614;
+  text-shadow: 1px 0 #111614, -1px 0 #111614, 0 1px #111614, 0 -1px #111614;
 }
 .black-piece {
   color: #121715;
-  -webkit-text-stroke: 1px #f5f1df;
-  text-shadow: 0 2px 1px rgba(255, 255, 255, 0.35), 0 0 2px rgba(255, 255, 255, 0.4);
+  -webkit-text-stroke: 1px #050706;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.28);
 }
 .selected { background: #f6f669 !important; }
 .last-move { background: rgba(246, 246, 105, 0.55) !important; }
