@@ -254,31 +254,132 @@ function evaluateBoard(aiColor) {
 }
 
 function orderMoves(moves) {
-  return moves.sort((a, b) => {
-    const score = move => {
-      let value = 0;
+  const scoredMoves = moves.map(move => {
+    let value = 0;
 
-      if (move.captured) {
-        value += 10 * pieceValues[move.captured] - pieceValues[move.piece];
-      }
+    if (move.captured) {
+      value += 10 * pieceValues[move.captured];
+      value -= pieceValues[move.piece];
+    }
 
-      if (move.promotion) {
-        value += 800;
-      }
+    if (move.promotion) {
+      value += 800;
+    }
 
-      if (move.flags.includes('k') || move.flags.includes('q')) {
-        value += 35;
-      }
+    if (move.flags.includes('k') || move.flags.includes('q')) {
+      value += 35;
+    }
 
-      return value;
-    };
-    return score(b) - score(a);
+    // Check whether this move gives check.
+    game.move(move);
+    if (game.in_check()) {
+      value += 500;
+    }
+    game.undo();
+
+    return { move, value };
   });
+
+  scoredMoves.sort((a, b) => b.value - a.value);
+
+  return scoredMoves.map(item => item.move);
+}
+
+function quiescenceSearch(depth, alpha, beta, isMaximizing, aiColor) {
+  if (game.in_checkmate()) {
+    return game.turn() === aiColor
+      ? -1000000 - depth
+      : 1000000 + depth;
+  }
+
+  if (game.in_draw()) return 0;
+
+  const standPat = evaluateBoard(aiColor);
+
+  if (depth === 0) return standPat;
+
+  const inCheck = game.in_check();
+  let moves = game.moves({ verbose: true });
+
+  // Only continue forcing moves unless the king is in check.
+  if (!inCheck) {
+    moves = moves.filter(move => {
+      if (move.captured || move.promotion) return true;
+
+      game.move(move);
+      const givesCheck = game.in_check();
+      game.undo();
+
+      return givesCheck;
+    });
+  }
+
+  moves = orderMoves(moves);
+
+  if (isMaximizing) {
+    let best = standPat;
+    alpha = Math.max(alpha, best);
+
+    for (const move of moves) {
+      game.move(move);
+
+      const value = quiescenceSearch(
+        depth - 1,
+        alpha,
+        beta,
+        false,
+        aiColor
+      );
+
+      game.undo();
+
+      best = Math.max(best, value);
+      alpha = Math.max(alpha, value);
+
+      if (beta <= alpha) break;
+    }
+
+    return best;
+  }
+
+  let best = standPat;
+  beta = Math.min(beta, best);
+
+  for (const move of moves) {
+    game.move(move);
+
+    const value = quiescenceSearch(
+      depth - 1,
+      alpha,
+      beta,
+      true,
+      aiColor
+    );
+
+    game.undo();
+
+    best = Math.min(best, value);
+    beta = Math.min(beta, value);
+
+    if (beta <= alpha) break;
+  }
+
+  return best;
 }
 
 function minimax(depth, alpha, beta, isMaximizing, aiColor) {
   if (game.in_checkmate()) return game.turn() === aiColor ? -1000000 - depth : 1000000 + depth;
-  if (depth === 0 || game.game_over()) return evaluateBoard(aiColor);
+  if (game.game_over()) return evaluateBoard(aiColor);
+
+  if (depth === 0) {
+    return quiescenceSearch(
+      1,
+      alpha,
+      beta,
+      isMaximizing,
+      aiColor
+    );
+  }
 
   const moves = orderMoves(game.moves({ verbose: true }));
 
@@ -338,6 +439,7 @@ const openingBook = {
   'e4': ['e5', 'c6'],
   'e4 e5 Nf3': ['Nc6'],
   'e4 e5 Nf3 Nc6 Bc4': ['Bc5', 'Nf6'],
+  'e4 e5 Nf3 Nc6 Bb5': ['Nf6','a6'],
   'e4 c6': ['d4'],
   //carokann
   'e4 c6 d4': ['d5'],
@@ -415,14 +517,29 @@ function searchBestMoveAsync(
   const earlyRookPenalty =
     move.piece === 'r' && game.history().length < 8 ? 35 : 0;
 
-  const castlingBonus =
-    move.flags.includes('k') || move.flags.includes('q')
-      ? 30
-      : 0;
+
+  let castlingPenalty = 0;
+
+  if (move.flags.includes('k') || move.flags.includes('q')) {
+    const color = aiColor;
+    const pawnRank = color === 'w' ? '2' : '7';
+
+    const exposedFiles = move.flags.includes('k')
+      ? ['f', 'g']
+      : ['b', 'c', 'd'];
+
+    for (const file of exposedFiles) {
+      const piece = game.get(file + pawnRank);
+
+      if (!piece || piece.type !== 'p' || piece.color !== color) {
+        castlingPenalty += 25;
+      }
+    }
+  }
 
   const boardValue =
-    minimax(searchDepth, -Infinity, Infinity, false, aiColor) +
-    castlingBonus -
+    minimax(searchDepth, -Infinity, Infinity, false, aiColor) -
+    castlingPenalty -
     earlyRookPenalty;
 
   game.undo();  
