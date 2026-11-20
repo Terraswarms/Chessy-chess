@@ -11,8 +11,6 @@ let selectedSquare = null;
 let lastMove = null;
 let playerColor = 'w';
 let pendingPromotion = null;
-let thinkingTimer = null;
-let thinkingDots = 1;
 
 const pieceSymbols = {
   p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
@@ -106,19 +104,12 @@ function renderBoard() {
 }
 
 function startThinking() {
-  clearInterval(thinkingTimer);
-  thinkingDots = 1;
-  statusEl.textContent = 'Bot is thinking.';
-
-  thinkingTimer = setInterval(() => {
-    thinkingDots = thinkingDots === 3 ? 1 : thinkingDots + 1;
-    statusEl.textContent = 'Bot is thinking' + '.'.repeat(thinkingDots);
-  }, 300);
+  statusEl.textContent = 'Bot is thinking';
+  statusEl.classList.add('thinking-status');
 }
 
 function stopThinking() {
-  clearInterval(thinkingTimer);
-  thinkingTimer = null;
+  statusEl.classList.remove('thinking-status');
 }
 
 function showPromotionDialog(from, to) {
@@ -160,7 +151,7 @@ function completePromotion(pieceType) {
 
     if (!game.game_over()) {
       startThinking();
-      setTimeout(makeAIMove, 850);
+      setTimeout(makeAIMove, 0);
     }
   }
 }
@@ -186,7 +177,7 @@ function onSquareClick(square) {
 
       if (!game.game_over()) {
         startThinking();
-        setTimeout(makeAIMove, 850);
+        setTimeout(makeAIMove, 0);
       }
     } else {
       const piece = game.get(square);
@@ -326,7 +317,7 @@ function resetGame() {
 
   if (playerColor === 'b') {
     startThinking();
-    setTimeout(makeAIMove, 850);
+    setTimeout(makeAIMove, 0);
   }
 }
 

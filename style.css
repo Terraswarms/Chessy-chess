@@ -100,7 +100,7 @@ button:focus-visible {
 }
 
 .square:hover { filter: brightness(1.08); }
-.light { background: #eee8d5; }
+.light { background: #f0edd2; }
 .dark { background: #62865f; }
 .white-piece {
   color: #fff;
@@ -152,6 +152,20 @@ button:focus-visible {
   letter-spacing: 0.01em;
 }
 
+.thinking-status {
+  color: transparent !important;
+  background: linear-gradient(100deg, #e9f0e7 15%, #a8e6a0 45%, #ffffff 50%, #a8e6a0 55%, #e9f0e7 85%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: thinkingSweep 1.35s ease-in-out infinite;
+}
+
+@keyframes thinkingSweep {
+  0% { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+
 #promoModal {
   display: none;
   position: absolute;
@@ -196,7 +210,7 @@ button:focus-visible {
   font-size: 38px;
   width: 55px;
   height: 55px;
-  background: #eeeed2;
+  background: #dedea8;
   color: #000;
   border-radius: 6px;
   display: flex;
