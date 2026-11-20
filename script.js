@@ -255,7 +255,23 @@ function evaluateBoard(aiColor) {
 
 function orderMoves(moves) {
   return moves.sort((a, b) => {
-    const score = move => (move.captured ? 10 * pieceValues[move.captured] - pieceValues[move.piece] : 0) + (move.promotion ? 800 : 0) + (move.flags.includes('k') ? 5 : 0);
+    const score = move => {
+      let value = 0;
+
+      if (move.captured) {
+        value += 10 * pieceValues[move.captured] - pieceValues[move.piece];
+      }
+
+      if (move.promotion) {
+        value += 800;
+      }
+
+      if (move.flags.includes('k') || move.flags.includes('q')) {
+        value += 35;
+      }
+
+      return value;
+    };
     return score(b) - score(a);
   });
 }
@@ -311,6 +327,7 @@ const openingBook = {
   'e4 c6': ['d4'],           // vs Caro-Kann
   'e4 e6': ['d4'],           // vs French
   'e4 d5': ['exd5'],         // vs Scandinavian (just take the free center pawn)
+  'e4 d5 exd5 Qxd5':['Nc3'],
 
   // 1. d4 lines (Queen's Gambit / London focus)
   'd4 d5': ['c4', 'Bf4'],
@@ -321,7 +338,15 @@ const openingBook = {
   'e4': ['e5', 'c6'],
   'e4 e5 Nf3': ['Nc6'],
   'e4 e5 Nf3 Nc6 Bc4': ['Bc5', 'Nf6'],
+  'e4 c6': ['d4'],
+  //carokann
   'e4 c6 d4': ['d5'],
+  'e4 c6 d4 d5': ['exd5', 'Nc3'],
+  'e4 c6 d4 d5 exd5': ['cxd5'],
+  'e4 c6 d4 d5 e5': ['Bf5'],
+  'e4 c6 d4 d5 Nc3': ['dxe4'],
+  'e4 c6 d4 d5 exd5 cxd5 Nc3': ['Bf5', 'Nf6'],
+  'e4 c6 e5': ['Bf5'],
 
   // vs 1. d4 (Stick to symmetrical d5 or solid Nf6)
   'd4': ['d5', 'Nf6'],
@@ -337,7 +362,7 @@ const openingBook = {
 
 
 function getOpeningBookMove() {
-  if (game.history().length > 8) return null;
+  if (game.history().length > 14) return null;
 
   const options = openingBook[game.history().join(' ')];
   if (!options) return null;
@@ -390,11 +415,17 @@ function searchBestMoveAsync(
   const earlyRookPenalty =
     move.piece === 'r' && game.history().length < 8 ? 35 : 0;
 
+  const castlingBonus =
+    move.flags.includes('k') || move.flags.includes('q')
+      ? 30
+      : 0;
+
   const boardValue =
-    minimax(searchDepth, -Infinity, Infinity, false, aiColor) -
+    minimax(searchDepth, -Infinity, Infinity, false, aiColor) +
+    castlingBonus -
     earlyRookPenalty;
 
-  game.undo();
+  game.undo();  
 
   const nextBestValue =
     boardValue > bestValue ? boardValue : bestValue;
