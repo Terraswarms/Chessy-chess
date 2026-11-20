@@ -169,6 +169,14 @@ function completePromotion(pieceType) {
 }
 
 function onSquareClick(square) {
+  if (
+    aiThinking ||
+    game.game_over() ||
+    game.turn() !== playerColor ||
+    pendingPromotion
+  ) {
+    return;
+  }
   if (game.game_over() || game.turn() !== playerColor || pendingPromotion) return;
 
   if (selectedSquare) {
@@ -473,10 +481,18 @@ function getOpeningBookMove() {
   return available.length ? available[Math.floor(Math.random() * available.length)] : null;
 }
 
-function finishAIMove(chosenMove) {
+function finishAIMove(chosenMove, token = null) {
+  // Reject an old or cancelled search.
+  if (token !== null && token !== searchToken) return;
+
+  // Never move if it is not currently the AI's turn.
+  if (!aiThinking || game.game_over() || game.turn() === playerColor) {
+    return;
+  }
+
   stopThinking();
 
-  if (!chosenMove || game.game_over()) {
+  if (!chosenMove) {
     renderBoard();
     return;
   }
@@ -580,6 +596,10 @@ function searchBestMoveAsync(
 }
 
 function makeAIMove() {
+  if (!aiThinking || game.turn() === playerColor) {
+    return;
+  }
+
   const moves = game.moves();
   if (moves.length === 0) return;
 
