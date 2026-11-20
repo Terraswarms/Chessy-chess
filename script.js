@@ -217,6 +217,51 @@ function onSquareClick(square) {
   }
 }
 
+function kingSafetyScore(board, color) {
+  const kingRow = color === 'w' ? 7 : 0;
+  const pawnRow = color === 'w' ? 6 : 1;
+  let kingCol = -1;
+
+  for (let col = 0; col < 8; col++) {
+    if (
+      board[kingRow][col] &&
+      board[kingRow][col].type === 'k' &&
+      board[kingRow][col].color === color
+    ) {
+      kingCol = col;
+      break;
+    }
+  }
+
+  if (kingCol === -1) return 0;
+
+  let score = 0;
+  const hasCastled = kingCol === 2 || kingCol === 6;
+
+  if (hasCastled) {
+    score += 24;
+
+    const shieldFiles = kingCol === 6
+      ? [5, 6, 7]
+      : [1, 2, 3];
+
+    for (const file of shieldFiles) {
+      const piece = board[pawnRow][file];
+
+      if (piece && piece.type === 'p' && piece.color === color) {
+        score += 7;
+      } else {
+        score -= 13;
+      }
+    }
+  } else if (game.history().length > 14) {
+    // Encourage getting the king safe once the opening is over.
+    score -= 18;
+  }
+
+  return score;
+}
+
 function evaluateBoard(aiColor) {
   if (game.in_checkmate()) return game.turn() === aiColor ? -1000000 : 1000000;
   if (game.in_draw()) return 0;
@@ -259,7 +304,12 @@ function evaluateBoard(aiColor) {
       if (piece.type === 'r' && piece.square !== undefined) total -= 4;
     });
   }
+  const aiKingSafety = kingSafetyScore(board, aiColor);
+  const opponentColor = aiColor === 'w' ? 'b' : 'w';
+  const opponentKingSafety = kingSafetyScore(board, opponentColor);
 
+  total += aiKingSafety - opponentKingSafety;
+  
   return total;
 }
 
@@ -280,12 +330,12 @@ function orderMoves(moves) {
       value += 35;
     }
 
-    // Check whether this move gives check.
-    game.move(move);
-    if (game.in_check()) {
+    // chess.js includes + or # in SAN notation for checks/checkmates.
+    if (move.san.includes('#')) {
+      value += 100000;
+    } else if (move.san.includes('+')) {
       value += 500;
     }
-    game.undo();
 
     return { move, value };
   });
@@ -512,6 +562,32 @@ function finishAIMove(chosenMove, token = null) {
   renderBoard();
 }
 
+function findMateInOne(moves) {
+  for (const move of moves) {
+    game.move(move);
+    const isMate = game.in_checkmate();
+    game.undo();
+
+    if (isMate) return move;
+  }
+
+  return null;
+}
+
+function opponentHasMateInOne() {
+  const replies = game.moves({ verbose: true });
+
+  for (const reply of replies) {
+    game.move(reply);
+    const isMate = game.in_checkmate();
+    game.undo();
+
+    if (isMate) return true;
+  }
+
+  return false;
+}
+
 function searchBestMoveAsync(
   moves,
   index,
@@ -573,11 +649,14 @@ function searchBestMoveAsync(
     }
   }
 
-  const boardValue =
-    minimax(searchDepth, -Infinity, Infinity, false, aiColor) -
-    castlingPenalty -
-    earlyRookPenalty -
-    queenPenalty;
+  const mateThreat = opponentHasMateInOne();
+
+  const boardValue = mateThreat
+    ? -999999
+    : minimax(searchDepth, -Infinity, Infinity, false, aiColor) -
+      castlingPenalty -
+      earlyRookPenalty -
+      queenPenalty;
 
   game.undo();  
 
@@ -606,6 +685,12 @@ function makeAIMove() {
   }
 
   const moves = game.moves();
+  const mateMove = findMateInOne(game.moves({ verbose: true }));
+
+  if (mateMove) {
+    finishAIMove(mateMove);
+    return;
+  }
   if (moves.length === 0) return;
 
   const difficulty = difficultySelect.value;
