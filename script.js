@@ -326,7 +326,6 @@ function getOpeningBookMove() {
 }
 
 function makeAIMove() {
-  stopThinking();
   const moves = game.moves();
   if (moves.length === 0) return;
 
@@ -361,11 +360,17 @@ function makeAIMove() {
     }
   }
 
-  if (!chosenMove) return;
+  if (!chosenMove) {
+    stopThinking();
+    return;
+  }
 
   const moveObj = game.move(chosenMove);
-  if (moveObj) lastMove = { from: moveObj.from, to: moveObj.to };
+  if (moveObj) {
+    lastMove = { from: moveObj.from, to: moveObj.to };
+  }
 
+  stopThinking();
   renderBoard();
 }
 

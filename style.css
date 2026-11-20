@@ -155,30 +155,26 @@ button:focus-visible {
 }
 
 .thinking-status {
-  color: #e9f0e7 !important;
+  color: #707070 !important;
 }
 
 .thinking-status span {
   display: inline-block;
-  color: #e9f0e7;
-  animation: letterGlow 1.2s ease-in-out infinite;
-  animation-delay: calc(var(--letter-index) * 0.06s);
+  color: #707070;
+  text-shadow: none;
+  animation: thinkingHighlight 1.2s linear infinite;
+  animation-delay: calc(var(--letter-index) * 0.07s);
 }
 
-@keyframes letterGlow {
+@keyframes thinkingHighlight {
   0%,
   100% {
-    color: #e9f0e7;
-    text-shadow: none;
-    transform: translateY(0);
+    color: #707070;
   }
 
-  50% {
-    color: #a8ff9c;
-    text-shadow:
-      0 0 4px #a8ff9c,
-      0 0 10px #72e86b;
-    transform: translateY(-1px);
+  45%,
+  55% {
+    color: #f5f5f5;
   }
 }
 
