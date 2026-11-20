@@ -105,7 +105,17 @@ function renderBoard() {
 }
 
 function startThinking() {
-  statusEl.textContent = 'Bot is thinking';
+  aiThinking = true;
+
+  const text = 'Bot is thinking';
+
+  statusEl.innerHTML = [...text]
+    .map((letter, index) => {
+      const safeLetter = letter === ' ' ? '&nbsp;' : letter;
+      return `<span style="--letter-index: ${index}">${safeLetter}</span>`;
+    })
+    .join('');
+
   statusEl.classList.add('thinking-status');
 }
 
@@ -196,30 +206,64 @@ function onSquareClick(square) {
 }
 
 function evaluateBoard(aiColor) {
+  if (game.in_checkmate()) return game.turn() === aiColor ? -1000000 : 1000000;
+  if (game.in_draw()) return 0;
+
   let total = 0;
   const board = game.board();
+  const pawnFiles = { w: Array(8).fill(0), b: Array(8).fill(0) };
 
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const piece = board[r][c];
+      if (!piece) continue;
 
-      if (piece) {
-        const val = pieceValues[piece.type];
-        total += piece.color === aiColor ? val : -val;
+      const sign = piece.color === aiColor ? 1 : -1;
+      const centerDistance = Math.abs(3.5 - r) + Math.abs(3.5 - c);
+      let value = pieceValues[piece.type];
+
+      if (piece.type === 'p') {
+        pawnFiles[piece.color][c]++;
+        const advancement = piece.color === 'w' ? 6 - r : r - 1;
+        value += advancement * 4;
+        if (c === 3 || c === 4) value += 8;
+      } else if (piece.type === 'n' || piece.type === 'b') {
+        value += Math.max(0, 4 - centerDistance) * 8;
+      } else if (piece.type === 'r') {
+        const hasPawnOnFile = board.some(row => row[c]?.type === 'p' && row[c]?.color === piece.color);
+        if (!hasPawnOnFile) value += 18;
       }
+
+      total += sign * value;
     }
+  }
+
+  // Prefer active positions and discourage moving rooks/queens too early.
+  const mobility = game.moves().length;
+  total += (game.turn() === aiColor ? mobility : -mobility) * 2;
+  if (game.history().length < 12) {
+    board.flat().forEach(piece => {
+      if (!piece || piece.color !== aiColor) return;
+      if (piece.type === 'q') total -= 10;
+      if (piece.type === 'r' && piece.square !== undefined) total -= 4;
+    });
   }
 
   return total;
 }
 
-function minimax(depth, alpha, beta, isMaximizing, aiColor) {
-  if (depth === 0 || game.game_over()) {
-    if (game.in_checkmate()) return isMaximizing ? -9999 : 9999;
-    return evaluateBoard(aiColor);
-  }
+function orderMoves(moves) {
+  return moves.sort((a, b) => {
+    const score = move => (move.captured ? 10 * pieceValues[move.captured] - pieceValues[move.piece] : 0) + (move.promotion ? 800 : 0) + (move.flags.includes('k') ? 5 : 0);
+    return score(b) - score(a);
+  });
+}
 
-  const moves = game.moves();
+function minimax(depth, alpha, beta, isMaximizing, aiColor) {
+  if (game.in_checkmate()) return game.turn() === aiColor ? -1000000 - depth : 1000000 + depth;
+  if (depth === 0 || game.game_over()) return evaluateBoard(aiColor);
+
+  const moves = orderMoves(game.moves({ verbose: true }));
 
   if (isMaximizing) {
     let maxEval = -Infinity;
@@ -254,6 +298,33 @@ function minimax(depth, alpha, beta, isMaximizing, aiColor) {
   }
 }
 
+// Hard mode follows a small opening book until the player leaves a known line.
+// Once there is no matching position, it immediately hands control to search.
+const openingBook = {
+  '': ['e4', 'd4', 'Nf3'],
+  'e4': ['c5', 'e5', 'c6', 'e6'],
+  'd4': ['d5', 'Nf6', 'e6'],
+  'Nf3': ['d5', 'Nf6', 'c5'],
+  'e4 c5 Nf3': ['d6', 'Nc6', 'e6'],
+  'e4 e5 Nf3': ['Nc6', 'Nf6'],
+  'e4 c6 d4': ['d5'],
+  'e4 e6 d4': ['d5'],
+  'd4 d5 c4': ['e6', 'c6'],
+  'd4 Nf6 c4': ['e6', 'g6'],
+  'Nf3 d5 c4': ['e6', 'c6']
+};
+
+function getOpeningBookMove() {
+  if (game.history().length > 8) return null;
+
+  const options = openingBook[game.history().join(' ')];
+  if (!options) return null;
+
+  const legalMoves = game.moves();
+  const available = options.filter(move => legalMoves.includes(move));
+  return available.length ? available[Math.floor(Math.random() * available.length)] : null;
+}
+
 function makeAIMove() {
   stopThinking();
   const moves = game.moves();
@@ -266,19 +337,26 @@ function makeAIMove() {
   if (difficulty === 'easy') {
     chosenMove = moves[Math.floor(Math.random() * moves.length)];
   } else {
-    const searchDepth = difficulty === 'medium' ? 1 : 2;
-    let bestValue = -Infinity;
+    if (difficulty === 'hard') chosenMove = getOpeningBookMove();
+    if (chosenMove) {
+      // Use the book move while the current position is familiar.
+    } else {
+      const searchDepth = difficulty === 'medium' ? 1 :2;
+      let bestValue = -Infinity;
 
-    moves.sort(() => Math.random() - 0.5);
+      const orderedMoves = orderMoves(game.moves({ verbose: true }));
+      if (difficulty === 'medium') orderedMoves.sort(() => Math.random() - 0.5);
 
-    for (const move of moves) {
-      game.move(move);
-      const boardValue = minimax(searchDepth, -Infinity, Infinity, false, aiColor);
-      game.undo();
+      for (const move of orderedMoves) {
+        game.move(move);
+        const earlyRookPenalty = difficulty === 'hard' && move.piece === 'r' && game.history().length < 8 ? 35 : 0;
+        const boardValue = minimax(searchDepth, -Infinity, Infinity, false, aiColor) - earlyRookPenalty;
+        game.undo();
 
-      if (boardValue > bestValue) {
-        bestValue = boardValue;
-        chosenMove = move;
+        if (boardValue > bestValue) {
+          bestValue = boardValue;
+          chosenMove = move;
+        }
       }
     }
   }
