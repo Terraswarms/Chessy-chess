@@ -11,6 +11,7 @@ let selectedSquare = null;
 let lastMove = null;
 let playerColor = 'w';
 let pendingPromotion = null;
+let searchToken = 0;
 
 const pieceSymbols = {
   p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
@@ -297,12 +298,10 @@ function minimax(depth, alpha, beta, isMaximizing, aiColor) {
     return minEval;
   }
 }
-
-// Hard mode follows a small opening book until the player leaves a known line.
-// Once there is no matching position, it immediately hands control to search.
+//book movess
 const openingBook = {
   '': ['e4', 'd4', 'Nf3'],
-  'e4': ['c5', 'e5', 'c6', 'e6'],
+  'e4': ['c5', 'e5', 'c6', 'e6','d5'],
   'd4': ['d5', 'Nf6', 'e6'],
   'Nf3': ['d5', 'Nf6', 'c5'],
   'e4 c5 Nf3': ['d6', 'Nc6', 'e6'],
@@ -325,6 +324,74 @@ function getOpeningBookMove() {
   return available.length ? available[Math.floor(Math.random() * available.length)] : null;
 }
 
+function finishAIMove(chosenMove) {
+  stopThinking();
+
+  if (!chosenMove || game.game_over()) {
+    renderBoard();
+    return;
+  }
+
+  const moveObj = game.move(chosenMove);
+
+  if (moveObj) {
+    lastMove = {
+      from: moveObj.from,
+      to: moveObj.to
+    };
+  }
+
+  renderBoard();
+}
+
+function searchBestMoveAsync(
+  moves,
+  index,
+  bestValue,
+  bestMove,
+  searchDepth,
+  aiColor,
+  token
+) {
+  if (token !== searchToken) return;
+
+  if (index >= moves.length) {
+    finishAIMove(bestMove);
+    return;
+  }
+
+  const move = moves[index];
+
+  game.move(move);
+
+  const earlyRookPenalty =
+    move.piece === 'r' && game.history().length < 8 ? 35 : 0;
+
+  const boardValue =
+    minimax(searchDepth, -Infinity, Infinity, false, aiColor) -
+    earlyRookPenalty;
+
+  game.undo();
+
+  const nextBestValue =
+    boardValue > bestValue ? boardValue : bestValue;
+
+  const nextBestMove =
+    boardValue > bestValue ? move : bestMove;
+
+  setTimeout(() => {
+    searchBestMoveAsync(
+      moves,
+      index + 1,
+      nextBestValue,
+      nextBestMove,
+      searchDepth,
+      aiColor,
+      token
+    );
+  }, 0);
+}
+
 function makeAIMove() {
   const moves = game.moves();
   if (moves.length === 0) return;
@@ -340,23 +407,28 @@ function makeAIMove() {
     if (chosenMove) {
       // Use the book move while the current position is familiar.
     } else {
-      const searchDepth = difficulty === 'medium' ? 1 :2;
-      let bestValue = -Infinity;
+      const searchDepth = difficulty === 'medium' ? 1 : 2;
+      const orderedMoves = orderMoves(
+        game.moves({ verbose: true })
+      );
 
-      const orderedMoves = orderMoves(game.moves({ verbose: true }));
-      if (difficulty === 'medium') orderedMoves.sort(() => Math.random() - 0.5);
-
-      for (const move of orderedMoves) {
-        game.move(move);
-        const earlyRookPenalty = difficulty === 'hard' && move.piece === 'r' && game.history().length < 8 ? 35 : 0;
-        const boardValue = minimax(searchDepth, -Infinity, Infinity, false, aiColor) - earlyRookPenalty;
-        game.undo();
-
-        if (boardValue > bestValue) {
-          bestValue = boardValue;
-          chosenMove = move;
-        }
+      if (difficulty === 'medium') {
+        orderedMoves.sort(() => Math.random() - 0.5);
       }
+
+      const token = ++searchToken;
+
+      searchBestMoveAsync(
+        orderedMoves,
+        0,
+        -Infinity,
+        null,
+        searchDepth,
+        aiColor,
+        token
+      );
+
+      return;
     }
   }
 
@@ -365,7 +437,6 @@ function makeAIMove() {
     return;
   }
 
-  const moveObj = game.move(chosenMove);
   if (moveObj) {
     lastMove = { from: moveObj.from, to: moveObj.to };
   }
