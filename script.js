@@ -11,6 +11,7 @@ let selectedSquare = null;
 let lastMove = null;
 let playerColor = 'w';
 let pendingPromotion = null;
+let aiThinking = false;
 let searchToken = 0;
 
 const pieceSymbols = {
@@ -121,6 +122,7 @@ function startThinking() {
 }
 
 function stopThinking() {
+  aiThinking = false;
   statusEl.classList.remove('thinking-status');
 }
 
@@ -177,7 +179,7 @@ function onSquareClick(square) {
   ) {
     return;
   }
-  if (game.game_over() || game.turn() !== playerColor || pendingPromotion) return;
+  
 
   if (selectedSquare) {
     const matchingMoves = game.moves({ square: selectedSquare, verbose: true })
@@ -521,13 +523,19 @@ function searchBestMoveAsync(
   if (token !== searchToken) return;
 
   if (index >= moves.length) {
-    finishAIMove(bestMove);
+    finishAIMove(bestMove, token);
     return;
   }
 
   const move = moves[index];
 
   game.move(move);
+
+  const earlyQueenMove =
+    move.piece === 'q' &&
+    game.history().length < 10 &&
+    !move.captured &&
+    !move.promotion;
 
   const queenGivesCheck =
     move.piece === 'q' && game.in_check();
@@ -542,11 +550,7 @@ function searchBestMoveAsync(
       ? 35
       : 0;
 
-  const earlyQueenMove =
-    move.piece === 'q' &&
-    game.history().length < 10 &&
-    !move.captured &&
-    !move.promotion;
+  
 
 
   let castlingPenalty = 0;
