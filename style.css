@@ -54,7 +54,7 @@ button {
 }
 
 button:hover {
-  background: #85a862;
+  background: #62a877;
 }
 
 .difficulty-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
@@ -252,4 +252,52 @@ button:focus-visible {
 
 .promo-btn:hover {
   background: #f6f669;
+}
+/* Black king */
+.black-piece-k {
+  color: #171b19;
+  -webkit-text-stroke: 1.8px #050706;
+  text-shadow:
+    0 1px 0 #303632,
+    0 2px 2px rgba(0, 0, 0, 0.55);
+}
+
+/* White king */
+.white-piece-k {
+  color: #ffffff;
+  -webkit-text-stroke: 1.8px #111614;
+  text-shadow:
+    1px 0 #111614,
+    -1px 0 #111614,
+    0 1px #111614,
+    0 -1px #111614;
+}
+
+/* White rook */
+.white-piece-r {
+  color: #ffffff;
+  -webkit-text-stroke: 1.8px #111614;
+  text-shadow:
+    1px 0 #111614,
+    -1px 0 #111614,
+    0 1px #111614,
+    0 -1px #111614,
+    0 2px 2px rgba(0, 0, 0, 0.35);
+}
+.difficulty-option:hover {
+  background: #4f825b;
+  color: #ffffff;
+}
+
+.difficulty-option:hover strong,
+.difficulty-option:hover small {
+  color: #ffffff;
+}
+
+.difficulty-option.active:hover {
+  background: #4f825b;
+}
+
+.difficulty-option.active:hover small {
+  color: #ffffff;
 }

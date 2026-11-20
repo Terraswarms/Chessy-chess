@@ -95,6 +95,7 @@ function renderBoard() {
       if (piece) {
         const key = piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
         sqEl.classList.add(piece.color === 'w' ? 'white-piece' : 'black-piece');
+        sqEl.classList.add(`${piece.color}-piece-${piece.type}`);
         sqEl.textContent = pieceSymbols[key];
       }
 
