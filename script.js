@@ -13,6 +13,7 @@ let playerColor = 'w';
 let pendingPromotion = null;
 let aiThinking = false;
 let searchToken = 0;
+let transpositionTable = new Map();
 
 const pieceSymbols = {
   p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
@@ -110,7 +111,7 @@ function renderBoard() {
 function startThinking() {
   aiThinking = true;
 
-  const text = 'Bot is thinking';
+  const text = 'Thinking';
 
   statusEl.innerHTML = [...text]
     .map((letter, index) => {
@@ -423,9 +424,23 @@ function quiescenceSearch(depth, alpha, beta, isMaximizing, aiColor) {
   return best;
 }
 
+function getPositionKey(depth, isMaximizing, aiColor) {
+  // Board, side to move, castling rights, and en-passant square.
+  const position = game.fen().split(' ').slice(0, 4).join(' ');
+
+  return `${position}|${depth}|${isMaximizing}|${aiColor}`;
+}
+
 function minimax(depth, alpha, beta, isMaximizing, aiColor) {
-  if (game.in_checkmate()) return game.turn() === aiColor ? -1000000 - depth : 1000000 + depth;
-  if (game.game_over()) return evaluateBoard(aiColor);
+  if (game.in_checkmate()) {
+    return game.turn() === aiColor
+      ? -1000000 - depth
+      : 1000000 + depth;
+  }
+
+  if (game.game_over()) {
+    return evaluateBoard(aiColor);
+  }
 
   if (depth === 0) {
     return quiescenceSearch(
@@ -437,39 +452,54 @@ function minimax(depth, alpha, beta, isMaximizing, aiColor) {
     );
   }
 
-  const moves = orderMoves(game.moves({ verbose: true }));
+  const key = getPositionKey(depth, isMaximizing, aiColor);
+  const rememberedScore = transpositionTable.get(key);
 
-  if (isMaximizing) {
-    let maxEval = -Infinity;
-
-    for (const move of moves) {
-      game.move(move);
-      const ev = minimax(depth - 1, alpha, beta, false, aiColor);
-      game.undo();
-
-      maxEval = Math.max(maxEval, ev);
-      alpha = Math.max(alpha, ev);
-
-      if (beta <= alpha) break;
-    }
-
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-
-    for (const move of moves) {
-      game.move(move);
-      const ev = minimax(depth - 1, alpha, beta, true, aiColor);
-      game.undo();
-
-      minEval = Math.min(minEval, ev);
-      beta = Math.min(beta, ev);
-
-      if (beta <= alpha) break;
-    }
-
-    return minEval;
+  if (rememberedScore !== undefined) {
+    return rememberedScore;
   }
+
+  const moves = orderMoves(game.moves({ verbose: true }));
+  let result = isMaximizing ? -Infinity : Infinity;
+  let cutOff = false;
+
+  for (const move of moves) {
+    game.move(move);
+
+    const score = minimax(
+      depth - 1,
+      alpha,
+      beta,
+      !isMaximizing,
+      aiColor
+    );
+
+    game.undo();
+
+    if (isMaximizing) {
+      result = Math.max(result, score);
+      alpha = Math.max(alpha, result);
+    } else {
+      result = Math.min(result, score);
+      beta = Math.min(beta, result);
+    }
+
+    if (beta <= alpha) {
+      cutOff = true;
+      break;
+    }
+  }
+
+  // A cut-off is only a partial result, so do not cache it.
+  if (!cutOff) {
+    if (transpositionTable.size > 50000) {
+      transpositionTable.clear();
+    }
+
+    transpositionTable.set(key, result);
+  }
+
+  return result;
 }
 const openingBook = {
   //  AI IS WHITE 
@@ -493,7 +523,7 @@ const openingBook = {
   // === AI IS BLACK ===
   // vs 1. e4 (Stick to symmetrical e5 or solid Caro-Kann c6)
   'e4': ['e5', 'c6'],
-  'e4 e5 Nf3': ['Nc6'],
+  'e4 e5 Nf3': ['Nc6','Nf6'],
   'e4 e5 Nf3 Nc6 Bc4': ['Bc5', 'Nf6'],
   'e4 e5 Nf3 Nc6 Bb5': ['Nf6','a6'],
   'e4 c6': ['d4'],
@@ -635,6 +665,100 @@ function sacrificeRiskPenalty(move) {
   return 0;
 }
 
+function openingDisciplinePenalty(move, aiColor) {
+  // Only apply opening rules during the first eight full moves.
+  if (
+    game.history().length > 16 ||
+    move.captured ||
+    move.san.includes('+')
+  ) {
+    return 0;
+  }
+
+  let penalty = 0;
+
+  const minorPieceStarts = aiColor === 'w'
+    ? ['b1', 'g1', 'c1', 'f1']
+    : ['b8', 'g8', 'c8', 'f8'];
+
+  // Developing one piece twice wastes time unless it is tactical.
+  if (
+    (move.piece === 'n' || move.piece === 'b') &&
+    !minorPieceStarts.includes(move.from)
+  ) {
+    penalty += 12;
+  }
+
+  // Never wander with the king in the opening. Castling is allowed.
+  if (
+    move.piece === 'k' &&
+    !move.flags.includes('k') &&
+    !move.flags.includes('q')
+  ) {
+    penalty += 70;
+  }
+
+  // Do not put a bishop in front of an unmoved centre pawn.
+  const blockedPawnSquares = aiColor === 'w'
+    ? { d3: 'd2', e3: 'e2' }
+    : { d6: 'd7', e6: 'e7' };
+
+  if (move.piece === 'b' && blockedPawnSquares[move.to]) {
+    const pawn = game.get(blockedPawnSquares[move.to]);
+
+    if (pawn && pawn.type === 'p' && pawn.color === aiColor) {
+      penalty += 22;
+    }
+  }
+
+  // Reward claiming the four central squares with a pawn.
+  if (
+    move.piece === 'p' &&
+    ['d4', 'e4', 'd5', 'e5'].includes(move.to)
+  ) {
+    penalty -= 14;
+  }
+
+  return penalty;
+}
+function freePiecePenalty() {
+  // At this point the candidate AI move has already been played,
+  // so game.moves() gives the opponent's legal replies.
+  const enemyCaptures = game.moves({ verbose: true }).filter(move =>
+    move.captured &&
+    pieceValues[move.captured] >= pieceValues.n
+  );
+
+  let worstLoss = 0;
+
+  for (const capture of enemyCaptures) {
+    const lostValue = pieceValues[capture.captured];
+
+    game.move(capture);
+
+    // Can Tuffish capture the attacking piece back?
+    const recaptures = game.moves({ verbose: true }).filter(reply =>
+      reply.to === capture.to && reply.captured
+    );
+
+    const recoveredValue = recaptures.reduce(
+      (highest, reply) =>
+        Math.max(highest, pieceValues[reply.captured] || 0),
+      0
+    );
+
+    game.undo();
+
+    // A knight taken by a pawn, then recapturing that pawn,
+    // still loses 20 points of material.
+    const netLoss = Math.max(0, lostValue - recoveredValue);
+
+    worstLoss = Math.max(worstLoss, netLoss * 2);
+  }
+
+  return worstLoss;
+}
+
 function searchBestMoveAsync(
   moves,
   index,
@@ -654,6 +778,9 @@ function searchBestMoveAsync(
   const move = moves[index];
 
   game.move(move);
+
+  const openingPenalty = openingDisciplinePenalty(move, aiColor);
+  const hangingPiecePenalty = freePiecePenalty();
 
   const earlyQueenMove =
     move.piece === 'q' &&
@@ -705,7 +832,9 @@ function searchBestMoveAsync(
       castlingPenalty -
       earlyRookPenalty -
       queenPenalty -
-      sacrificePenalty;
+      sacrificePenalty -
+      openingPenalty -
+      hangingPiecePenalty;
 
   game.undo();  
 
@@ -762,6 +891,7 @@ function makeAIMove() {
         orderedMoves.sort(() => Math.random() - 0.5);
       }
 
+      transpositionTable.clear();
       const token = ++searchToken;
 
       searchBestMoveAsync(
