@@ -366,11 +366,7 @@ function quiescenceSearch(depth, alpha, beta, isMaximizing, aiColor) {
     moves = moves.filter(move => {
       if (move.captured || move.promotion) return true;
 
-      game.move(move);
-      const givesCheck = game.in_check();
-      game.undo();
-
-      return givesCheck;
+      return move.san.includes('+') || move.san.includes('#');
     });
   }
 
@@ -588,6 +584,57 @@ function opponentHasMateInOne() {
   return false;
 }
 
+function sacrificeRiskPenalty(move) {
+  const valuablePiece = ['n', 'b', 'r'].includes(move.piece);
+
+  if (!valuablePiece) return 0;
+
+  const movingPieceValue = pieceValues[move.piece];
+  const capturedValue = move.captured
+    ? pieceValues[move.captured]
+    : 0;
+
+  // Winning an equal-or-more-valuable piece is not a sacrifice.
+  if (capturedValue >= movingPieceValue) return 0;
+
+  // The candidate move has already been played at this point.
+  // Can the opponent simply capture the moved piece?
+  const captures = game.moves({ verbose: true }).filter(reply =>
+    reply.to === move.to &&
+    reply.captured === move.piece
+  );
+
+  if (captures.length === 0) return 0;
+
+  for (const capture of captures) {
+    game.move(capture);
+
+    const followUps = game.moves({ verbose: true });
+
+    const hasMate = followUps.some(reply => reply.san.includes('#'));
+
+    // Can Tuffish immediately win back the piece which captured it?
+    const canRecapture = followUps.some(reply =>
+      reply.to === capture.to && reply.captured
+    );
+
+    // A sacrifice is only allowed some freedom if it creates
+    // several forcing checks after the opponent accepts it.
+    const checkingReplies = followUps.filter(reply =>
+      reply.san.includes('+')
+    ).length;
+
+    game.undo();
+
+    // The opponent only needs one safe way to accept the sacrifice.
+    if (!hasMate && !canRecapture && checkingReplies < 2) {
+      return movingPieceValue * 3;
+    }
+  }
+
+  return 0;
+}
+
 function searchBestMoveAsync(
   moves,
   index,
@@ -650,13 +697,15 @@ function searchBestMoveAsync(
   }
 
   const mateThreat = opponentHasMateInOne();
+  const sacrificePenalty = sacrificeRiskPenalty(move);
 
   const boardValue = mateThreat
     ? -999999
     : minimax(searchDepth, -Infinity, Infinity, false, aiColor) -
       castlingPenalty -
       earlyRookPenalty -
-      queenPenalty;
+      queenPenalty -
+      sacrificePenalty;
 
   game.undo();  
 
